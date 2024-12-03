@@ -55,7 +55,7 @@ def recognize_gesture(landmarks, frame_width, frame_height):
     ):
         scroll_speed = 10 if index_tip.y > frame_height // 2 else -10
         pyautogui.scroll(scroll_speed)  # Scroll up or down
-        return "Scrolling Gesture"
+        return "Open hand Gesture"
 
     return "Unknown Gesture"
 
