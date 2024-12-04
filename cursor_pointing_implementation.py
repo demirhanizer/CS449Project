@@ -76,6 +76,14 @@ def recognize_gesture(landmarks, frame_width, frame_height):
         and abs(thumb_tip.y - index_tip.y) < 0.1  # Thumb close to index finger
     ):
         return "Close Hand Gesture", "Confirm Action"
+    
+    # Click Button Gesture: Index finger and thumb touching
+    if (
+        abs(index_tip.x - thumb_tip.x) < 0.05  # Horizontal closeness
+        and abs(index_tip.y - thumb_tip.y) < 0.05  # Vertical closeness
+    ):
+        pyautogui.click()
+        return "Click Button Gesture", "Click Action"
 
     return "Unknown Gesture", "No Action"
 
