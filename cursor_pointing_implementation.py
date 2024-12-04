@@ -74,14 +74,10 @@ def recognize_gesture(landmarks):
 
     # Open Hand Gesture to select
     if (
-        abs(index_tip.y - wrist.y) < 0.2  # Index finger close to wrist
-        and abs(middle_tip.y - wrist.y) < 0.2  # Middle finger close to wrist
-        and abs(ring_tip.y - wrist.y) < 0.2  # Ring finger close to wrist
-        and abs(pinky_tip.y - wrist.y) < 0.2  # Pinky finger close to wrist
-        and abs(thumb_tip.x - wrist.x) < 0.3  # Thumb close to wrist
-        and abs(thumb_tip.y - index_tip.y) < 0.1  # Thumb close to index finger
+        abs(index_tip.y - wrist.y) > 0.2
+        and abs(middle_tip.y - wrist.y) > 0.2
     ):
-        return "Close Hand Gesture", "Confirm Action"
+        return "Open Hand Gesture", f"Selected: {menu_items[selected_item_index]}"
 
     return "Unknown Gesture", "No Action"
 
