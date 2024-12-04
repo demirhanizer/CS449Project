@@ -13,23 +13,33 @@ hands = mp_hands.Hands(min_detection_confidence=0.7, min_tracking_confidence=0.7
 screen_width, screen_height = pyautogui.size()
 
 # Start video capture
-cap = cv2.VideoCapture(0)  # Adjust the camera index if necessary
+cap = cv2.VideoCapture(1)  # Adjust the camera index if necessary
 
 # Initialize Tkinter GUI
 root = tk.Tk()
-root.title("Gesture Recognition GUI with Camera Feed and Landmarks")
-root.geometry("1000x800")
+root.title("Enhanced Gesture-Controlled Interface")
+root.geometry("1280x720")
 
-# Add GUI elements
-gesture_label = tk.Label(root, text="Gesture: None", font=("Helvetica", 16))
-gesture_label.pack(pady=10)
+# Add a frame for navigation buttons
+nav_frame = tk.Frame(root, bg="black", width=200, height=720)
+nav_frame.pack(side=tk.LEFT, fill=tk.Y)
 
-action_label = tk.Label(root, text="Action: None", font=("Helvetica", 16))
-action_label.pack(pady=10)
+# Add navigation buttons
+tk.Label(nav_frame, text="Navigator", font=("Helvetica", 16), fg="white", bg="black").pack(pady=10)
+buttons = [
+    ("Open Menu", "Open Menu Gesture"),
+    ("Close Menu", "Close Menu Gesture"),
+    ("Machine Control", "Machine Gesture"),
+    ("Power Control", "Power Gesture"),
+    ("Speed Control", "Speed Gesture"),
+]
+for btn_text, gesture in buttons:
+    btn = tk.Button(nav_frame, text=btn_text, font=("Helvetica", 12), width=18)
+    btn.pack(pady=10)
 
-# Canvas for video feed (Enlarged)
-video_canvas = tk.Canvas(root, width=960, height=720)  # Set the larger size for the camera feed
-video_canvas.pack()
+# Canvas for video feed (Right side)
+video_canvas = tk.Canvas(root, width=960, height=720, bg="black")
+video_canvas.pack(side=tk.RIGHT, expand=True, fill=tk.BOTH)
 
 # Define gesture recognition function
 def recognize_gesture(landmarks, frame_width, frame_height):
@@ -40,43 +50,11 @@ def recognize_gesture(landmarks, frame_width, frame_height):
     wrist = landmarks[mp_hands.HandLandmark.WRIST]
     thumb_tip = landmarks[mp_hands.HandLandmark.THUMB_TIP]
 
-    # Cursor-Pointing Gesture: Index finger up, others curled
-    if (
-        index_tip.y < middle_tip.y  # Index finger above middle finger
-        and index_tip.y < ring_tip.y  # Index finger above ring finger
-        and index_tip.y < pinky_tip.y  # Index finger above pinky
-        and middle_tip.y > wrist.y  # Middle finger curled
-        and ring_tip.y > wrist.y  # Ring finger curled
-        and pinky_tip.y > wrist.y  # Pinky curled
-    ):
-        screen_x = int(index_tip.x * screen_width)
-        screen_y = int(index_tip.y * screen_height)
-        pyautogui.moveTo(screen_x, screen_y)  # Move the cursor
+    # Example gesture logic
+    if index_tip.y < middle_tip.y < ring_tip.y < pinky_tip.y:
         return "Cursor-Pointing Gesture", "Moving Cursor"
-
-    # Scrolling Gesture: Open palm
-    if (
-        abs(thumb_tip.y - wrist.y) > 0.2  # Thumb away from wrist
-        and abs(index_tip.y - wrist.y) > 0.2  # Index finger extended
-        and abs(middle_tip.y - wrist.y) > 0.2  # Middle finger extended
-        and abs(ring_tip.y - wrist.y) > 0.2  # Ring finger extended
-        and abs(pinky_tip.y - wrist.y) > 0.2  # Pinky finger extended
-    ):
-        scroll_speed = 10 if index_tip.y > frame_height // 2 else -10
-        pyautogui.scroll(scroll_speed)  # Scroll up or down
-        return "Open Hand Gesture", "Scrolling"
-
-    # Close Hand Gesture: All fingers near wrist
-    if (
-        abs(index_tip.y - wrist.y) < 0.2  # Index finger close to wrist
-        and abs(middle_tip.y - wrist.y) < 0.2  # Middle finger close to wrist
-        and abs(ring_tip.y - wrist.y) < 0.2  # Ring finger close to wrist
-        and abs(pinky_tip.y - wrist.y) < 0.2  # Pinky finger close to wrist
-        and abs(thumb_tip.x - wrist.x) < 0.3  # Thumb close to wrist
-        and abs(thumb_tip.y - index_tip.y) < 0.1  # Thumb close to index finger
-    ):
+    elif abs(index_tip.y - wrist.y) < 0.2 and abs(middle_tip.y - wrist.y) < 0.2:
         return "Close Hand Gesture", "Confirm Action"
-
     return "Unknown Gesture", "No Action"
 
 # Function to process video and update GUI
@@ -93,20 +71,29 @@ def update_video():
     frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     results = hands.process(frame_rgb)
 
+    action = "No Action"  # Default action
     if results.multi_hand_landmarks:
         for hand_landmarks in results.multi_hand_landmarks:
             # Draw the landmarks on the frame
-            mp_drawing.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+            mp_drawing.draw_landmarks(frame_rgb, hand_landmarks, mp_hands.HAND_CONNECTIONS)
 
             # Detect gesture and perform actions
             gesture, action = recognize_gesture(hand_landmarks.landmark, frame_width, frame_height)
 
-            # Update the GUI with the detected gesture and action
-            gesture_label.config(text=f"Gesture: {gesture}")
-            action_label.config(text=f"Action: {action}")
+    # Overlay the action name on the camera feed
+    cv2.putText(
+        frame_rgb,
+        f"Action: {action}",
+        (10, 50),  # Position on the frame
+        cv2.FONT_HERSHEY_SIMPLEX,
+        1,  # Font scale
+        (0, 255, 0),  # Text color (green)
+        2,  # Line thickness
+        cv2.LINE_AA,
+    )
 
     # Resize frame to match Canvas size
-    resized_frame = cv2.resize(frame, (960, 720))
+    resized_frame = cv2.resize(frame_rgb, (960, 720))
 
     # Convert the frame to a format compatible with Tkinter
     frame_image = ImageTk.PhotoImage(image=Image.fromarray(resized_frame))
