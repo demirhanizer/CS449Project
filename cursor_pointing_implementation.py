@@ -1,103 +1,75 @@
+import tkinter as tk
+from tkinter import messagebox
 import cv2
 import mediapipe as mp
-import pyautogui  # For controlling the cursor and scrolling
+import pyautogui
 
-# Initialize MediaPipe Hand solution
+# MediaPipe setup
 mp_hands = mp.solutions.hands
 mp_drawing = mp.solutions.drawing_utils
 hands = mp_hands.Hands(min_detection_confidence=0.7, min_tracking_confidence=0.7)
 
-# Get screen dimensions for cursor mapping
-screen_width, screen_height = pyautogui.size()
-
-# Start video capture
-cap = cv2.VideoCapture(0)  # Adjust the camera index if necessary
-
-def recognize_gesture(landmarks, frame_width, frame_height):
-    """
-    Recognize gestures and perform actions.
-    Arguments:
-    - landmarks: Normalized hand landmarks from MediaPipe.
-    - frame_width: Width of the video frame.
-    - frame_height: Height of the video frame.
-
-    Returns:
-    - Detected gesture name.
-    """
+# Gesture recognition logic
+def recognize_gesture(landmarks):
+    thumb_tip = landmarks[mp_hands.HandLandmark.THUMB_TIP]
     index_tip = landmarks[mp_hands.HandLandmark.INDEX_FINGER_TIP]
     middle_tip = landmarks[mp_hands.HandLandmark.MIDDLE_FINGER_TIP]
-    ring_tip = landmarks[mp_hands.HandLandmark.RING_FINGER_TIP]
-    pinky_tip = landmarks[mp_hands.HandLandmark.PINKY_TIP]
     wrist = landmarks[mp_hands.HandLandmark.WRIST]
-    thumb_tip = landmarks[mp_hands.HandLandmark.THUMB_TIP]
 
-    # Cursor-Pointing Gesture: Index finger up, others curled
-    if (
-        index_tip.y < middle_tip.y  # Index finger above middle finger
-        and index_tip.y < ring_tip.y  # Index finger above ring finger
-        and index_tip.y < pinky_tip.y  # Index finger above pinky
-        and middle_tip.y > wrist.y  # Middle finger curled
-        and ring_tip.y > wrist.y  # Ring finger curled
-        and pinky_tip.y > wrist.y  # Pinky curled
-    ):
-        screen_x = int(index_tip.x * screen_width)
-        screen_y = int(index_tip.y * screen_height)
-        pyautogui.moveTo(screen_x, screen_y)  # Move the cursor
+    if index_tip.y < middle_tip.y and middle_tip.y > wrist.y:
         return "Cursor-Pointing Gesture"
-
-    # Scrolling Gesture: Open palm
-    if (
-        abs(thumb_tip.y - wrist.y) > 0.2  # Thumb away from wrist
-        and abs(index_tip.y - wrist.y) > 0.2  # Index finger extended
-        and abs(middle_tip.y - wrist.y) > 0.2  # Middle finger extended
-        and abs(ring_tip.y - wrist.y) > 0.2  # Ring finger extended
-        and abs(pinky_tip.y - wrist.y) > 0.2  # Pinky finger extended
-    ):
-        scroll_speed = 10 if index_tip.y > frame_height // 2 else -10
-        pyautogui.scroll(scroll_speed)  # Scroll up or down
-        return "Open hand Gesture"
-    
-    # Close Hand Gesture: All fingers near wrist
-    if (
-        abs(index_tip.y - wrist.y) < 0.2  # Index finger close to wrist
-        and abs(middle_tip.y - wrist.y) < 0.2  # Middle finger close to wrist
-        and abs(ring_tip.y - wrist.y) < 0.2  # Ring finger close to wrist
-        and abs(pinky_tip.y - wrist.y) < 0.2  # Pinky finger close to wrist
-        and abs(thumb_tip.x - wrist.x) < 0.3  # Thumb close to wrist
-        and abs(thumb_tip.y - index_tip.y) < 0.1  # Thumb close to index finger
-    ):
+    elif abs(thumb_tip.y - wrist.y) > 0.2 and abs(index_tip.y - wrist.y) > 0.2:
+        return "Open Hand Gesture"
+    elif abs(index_tip.y - wrist.y) < 0.2:
         return "Close Hand Gesture"
-
     return "Unknown Gesture"
 
-while cap.isOpened():
-    ret, frame = cap.read()
-    if not ret:
-        break
+# GUI functions
+def perform_action(action):
+    if action == "Open Hand Gesture":
+        messagebox.showinfo("Gesture Detected", "Scrolling Action Triggered")
+    elif action == "Cursor-Pointing Gesture":
+        messagebox.showinfo("Gesture Detected", "Cursor Movement Triggered")
+    elif action == "Close Hand Gesture":
+        messagebox.showinfo("Gesture Detected", "Confirm Action Triggered")
 
-    # Flip the frame for a mirror effect
-    frame = cv2.flip(frame, 1)
-    frame_height, frame_width, _ = frame.shape
+# Tkinter GUI setup
+def create_gui():
+    root = tk.Tk()
+    root.title("Gesture-Controlled Interface")
+    root.geometry("600x400")
 
-    # Convert the frame to RGB for MediaPipe
-    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    results = hands.process(frame_rgb)
+    # Create a grid layout for buttons
+    for row in range(3):
+        for col in range(3):
+            btn = tk.Button(root, text=f"Button {row*3 + col + 1}", width=20, height=5)
+            btn.grid(row=row, column=col, padx=5, pady=5)
 
-    if results.multi_hand_landmarks:
-        for hand_landmarks in results.multi_hand_landmarks:
-            # Draw the landmarks on the frame
-            mp_drawing.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+    # Main interface loop
+    def update_interface():
+        ret, frame = cap.read()
+        if not ret:
+            return
 
-            # Detect gesture and perform actions
-            gesture = recognize_gesture(hand_landmarks.landmark, frame_width, frame_height)
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        results = hands.process(frame_rgb)
 
-            # Display the gesture on the frame
-            cv2.putText(frame, gesture, (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0) if gesture == "Cursor-Pointing Gesture" else (0, 255, 255), 2)
+        if results.multi_hand_landmarks:
+            for hand_landmarks in results.multi_hand_landmarks:
+                mp_drawing.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+                gesture = recognize_gesture(hand_landmarks.landmark)
+                perform_action(gesture)
 
-    # Display the video feed
-    cv2.imshow("Hand Gesture Recognition", frame)
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+        root.after(10, update_interface)
+
+    root.after(10, update_interface)
+    root.mainloop()
+
+# Video capture
+cap = cv2.VideoCapture(1)
+
+# Start the application
+create_gui()
 
 # Release resources
 cap.release()
