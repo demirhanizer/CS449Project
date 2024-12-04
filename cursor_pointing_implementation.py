@@ -11,7 +11,7 @@ hands = mp_hands.Hands(min_detection_confidence=0.7, min_tracking_confidence=0.7
 screen_width, screen_height = pyautogui.size()
 
 # Start video capture
-cap = cv2.VideoCapture(1)  # Adjust the camera index if necessary
+cap = cv2.VideoCapture(0)  # Adjust the camera index if necessary
 
 def recognize_gesture(landmarks, frame_width, frame_height):
     """
@@ -56,6 +56,17 @@ def recognize_gesture(landmarks, frame_width, frame_height):
         scroll_speed = 10 if index_tip.y > frame_height // 2 else -10
         pyautogui.scroll(scroll_speed)  # Scroll up or down
         return "Open hand Gesture"
+    
+    # Close Hand Gesture: All fingers near wrist
+    if (
+        abs(index_tip.y - wrist.y) < 0.2  # Index finger close to wrist
+        and abs(middle_tip.y - wrist.y) < 0.2  # Middle finger close to wrist
+        and abs(ring_tip.y - wrist.y) < 0.2  # Ring finger close to wrist
+        and abs(pinky_tip.y - wrist.y) < 0.2  # Pinky finger close to wrist
+        and abs(thumb_tip.x - wrist.x) < 0.3  # Thumb close to wrist
+        and abs(thumb_tip.y - index_tip.y) < 0.1  # Thumb close to index finger
+    ):
+        return "Close Hand Gesture"
 
     return "Unknown Gesture"
 
