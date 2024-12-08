@@ -24,7 +24,7 @@ initial_mode = True  # Start with initial mode
 mode = None           # Will be "menu" or "list" after initial selection
 finger_up_start = None
 finger_down_start = None
-GESTURE_HOLD_TIME = 3.0  # seconds required to hold a gesture (for initial menu)
+GESTURE_HOLD_TIME = 3.0  # seconds required to hold a gesture
 
 # For listed mode: continuous navigation
 SCROLL_DELAY = 0.5  # How often to move when holding thumbs up/down
@@ -34,9 +34,7 @@ last_gesture_time = None
 # Circular menu items
 menu_items = [
     "Listed", "Hoş Geldiniz", "Teşekkür Ederim", "Tuş Takımı",
-    "Hoşça kal", "Hayır", "Evet", "Geri", "Merhaba, Nasılsın?",
-    "Ekstra 1", "Ekstra 2", "Ekstra 3", "Ekstra 4", "Ekstra 5",
-    "Ekstra 6", "Ekstra 7", "Ekstra 8", "Ekstra 9", "Ekstra 10"
+    "Hoşça kal", "Hayır", "Evet", "Geri", "Merhaba, Nasılsın?"
 ]
 selected_item_index = 0
 
@@ -65,10 +63,9 @@ listbox.activate(listed_highlight_index)
 
 def draw_initial_menu():
     """Draw the initial screen with two options: Listed and Menu Tab."""
-    menu_canvas.delete("all")
+    menu_canvas.delete("all")  # Clear so we can redraw camera and overlays
     menu_canvas.create_text(600, 100, text="Choose Your Option by Holding Gesture for 3s",
                             fill="black", font=("Helvetica", 24, "bold"))
-
     # Draw "Listed" button
     menu_canvas.create_rectangle(400, 300, 550, 400, fill="white", outline="black", width=2, tags="initial")
     menu_canvas.create_text(475, 350, text="Listed", fill="black", font=("Helvetica", 16, "bold"), tags="initial")
@@ -153,28 +150,32 @@ def check_initial_selection(landmarks):
     index_tip = landmarks[mp_hands.HandLandmark.INDEX_FINGER_TIP]
     middle_tip = landmarks[mp_hands.HandLandmark.MIDDLE_FINGER_TIP]
 
-    # Finger up criteria
+    # Finger up criteria for Listed
     finger_up = index_tip.y < middle_tip.y
     current_time = time.time()
 
     if finger_up:
-        # Reset down timer
+        # If finger is up, we reset down timer and start/uphold up timer
         finger_down_start = None
         if finger_up_start is None:
             finger_up_start = current_time
         else:
-            if current_time - finger_up_start >= GESTURE_HOLD_TIME:
+            # Check if time is enough to choose "Listed"
+            time_elapsed = current_time - finger_up_start
+            if time_elapsed >= GESTURE_HOLD_TIME:
                 # User chose "Listed"
                 mode = "list"
                 initial_mode = False
                 clear_initial_screen()
     else:
-        # Finger down
+        # Finger not up means consider finger down for "Menu Tab"
         finger_up_start = None
+        # Check if finger down is stable
         if finger_down_start is None:
             finger_down_start = current_time
         else:
-            if current_time - finger_down_start >= GESTURE_HOLD_TIME:
+            time_elapsed = current_time - finger_down_start
+            if time_elapsed >= GESTURE_HOLD_TIME:
                 # User chose "Menu Tab"
                 mode = "menu"
                 initial_mode = False
@@ -199,7 +200,7 @@ def switch_to_listed_mode():
     menu_canvas.delete("all")
     listbox.place(x=400, y=100)
     selected_text_label.config(text="Selected: None (Listed Mode)")
-    # Reset highlight to 0 or keep current
+    # Reset highlight to 0
     listed_highlight_index = 0
     listbox.select_clear(0, tk.END)
     listbox.select_set(listed_highlight_index)
@@ -239,14 +240,12 @@ def handle_listed_mode_gesture(gesture):
     if gesture in ["Thumbs Up", "Thumbs Down"]:
         if last_gesture == gesture:
             # Same gesture continues
-            # Check if enough time passed since last move
             if current_time - last_gesture_time >= SCROLL_DELAY:
-                # Move one step in the given direction
                 direction = "up" if gesture == "Thumbs Up" else "down"
                 move_list_highlight(direction)
                 last_gesture_time = current_time
         else:
-            # New gesture detected (or different from last)
+            # New gesture detected
             last_gesture = gesture
             last_gesture_time = current_time
             # Move once immediately
@@ -256,6 +255,27 @@ def handle_listed_mode_gesture(gesture):
         # No thumbs gesture, reset
         last_gesture = None
         last_gesture_time = None
+
+def display_initial_countdown():
+    """Display countdown for selecting Listed or Menu Tab in initial mode."""
+    menu_canvas.delete("countdown")
+    current_time = time.time()
+
+    # Show countdown if finger_up_start is active
+    if finger_up_start is not None:
+        time_elapsed = current_time - finger_up_start
+        time_left = max(GESTURE_HOLD_TIME - time_elapsed, 0)
+        if time_left > 0:
+            menu_canvas.create_text(600, 200, text=f"Selecting 'Listed' in {time_left:.1f}s",
+                                    fill="blue", font=("Helvetica", 20), tags="countdown")
+
+    # Show countdown if finger_down_start is active and finger_up_start is not
+    elif finger_down_start is not None:
+        time_elapsed = current_time - finger_down_start
+        time_left = max(GESTURE_HOLD_TIME - time_elapsed, 0)
+        if time_left > 0:
+            menu_canvas.create_text(600, 200, text=f"Selecting 'Menu Tab' in {time_left:.1f}s",
+                                    fill="blue", font=("Helvetica", 20), tags="countdown")
 
 def update_video():
     global selected_item_index, initial_mode, mode
@@ -271,11 +291,22 @@ def update_video():
     results = hands.process(frame_rgb)
 
     if initial_mode:
+        # Always draw initial menu and show camera
         draw_initial_menu()
 
-    if initial_mode and results.multi_hand_landmarks:
-        for hand_landmarks in results.multi_hand_landmarks:
-            check_initial_selection(hand_landmarks.landmark)
+    # Show camera feed in the initial mode on the right side
+    resized_frame = cv2.resize(frame_rgb, (450, 325))
+    frame_image = ImageTk.PhotoImage(image=Image.fromarray(resized_frame))
+    # Display camera feed
+    menu_canvas.create_image(700, 480, anchor=tk.NW, image=frame_image, tags="camera")
+    menu_canvas.image = frame_image
+
+    if initial_mode:
+        if results.multi_hand_landmarks:
+            for hand_landmarks in results.multi_hand_landmarks:
+                check_initial_selection(hand_landmarks.landmark)
+        # Show countdown every frame in initial mode
+        display_initial_countdown()
     else:
         # After initial mode is done, proceed according to current mode
         if results.multi_hand_landmarks:
@@ -286,7 +317,7 @@ def update_video():
                     menu_canvas.delete("camera")
                     menu_canvas.delete("cursor")
 
-                    # System scrolling if you wish to keep it
+                    # System scrolling if you wish
                     if thumb_gesture == "Thumbs Up":
                         pyautogui.scroll(20)
                     elif thumb_gesture == "Thumbs Down":
@@ -331,10 +362,10 @@ def update_video():
 
                     # Display camera feed in listed mode (top-left corner)
                     menu_canvas.delete("all")
-                    resized_frame = cv2.resize(frame_rgb, (200, 150))
-                    frame_image = ImageTk.PhotoImage(image=Image.fromarray(resized_frame))
-                    menu_canvas.create_image(10, 10, anchor=tk.NW, image=frame_image)
-                    menu_canvas.image = frame_image
+                    resized_list_frame = cv2.resize(frame_rgb, (200, 150))
+                    frame_image_list = ImageTk.PhotoImage(image=Image.fromarray(resized_list_frame))
+                    menu_canvas.create_image(10, 10, anchor=tk.NW, image=frame_image_list)
+                    menu_canvas.image = frame_image_list
         else:
             # No hands detected
             if mode == "menu":
