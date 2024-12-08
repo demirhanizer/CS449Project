@@ -20,7 +20,7 @@ root.geometry("1200x800")
 
 # Circular menu items
 menu_items = [
-    "Hoş Geldiniz", "Teşekkür Ederim", "Tuş Takımı",
+    "Hoş Geldiniz", "Teşekkür Ederim", "Bugün hava nasıl?",
     "Hoşça kal", "Hayır", "Evet", "Geri", "Merhaba, Nasılsın?"
 ]
 selected_item_index = 0
