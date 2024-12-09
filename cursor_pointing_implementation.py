@@ -82,10 +82,6 @@ def draw_listed_menu(items, scroll_index):
         menu_canvas.create_rectangle(400, y, 800, y + 30, fill="white", outline="black", tags="menu")
         menu_canvas.create_text(600, y + 15, text=item, fill="black", font=("Helvetica", 12, "bold"), tags="menu")
 
-    # Back button
-    menu_canvas.create_rectangle(10, 10, 110, 50, fill="gray", outline="black", tags="menu")
-    menu_canvas.create_text(60, 30, text="Back", fill="white", font=("Helvetica", 12, "bold"), tags="menu")
-
 
 def detect_thumbs_gesture(landmarks):
     """
@@ -102,6 +98,57 @@ def detect_thumbs_gesture(landmarks):
     if thumb_downwards:
         return "Thumbs Down"
     return "No Gesture"
+
+def detect_peace_sign(landmarks):
+    """
+    Detects a 'peace sign' gesture with stricter conditions to avoid mixing it up
+    with a pointing gesture.
+
+    Conditions:
+    - Index and middle fingertips both clearly above the wrist line.
+    - Index and middle fingertips at roughly the same vertical height 
+      (so both are equally extended, not one much higher than the other).
+    - A sufficient horizontal separation between index and middle fingertips 
+      to form a distinct "V".
+    - Ring, pinky, and thumb below the wrist line, folded in.
+    """
+    wrist_y = landmarks[mp_hands.HandLandmark.WRIST].y
+
+    index_tip = landmarks[mp_hands.HandLandmark.INDEX_FINGER_TIP]
+    middle_tip = landmarks[mp_hands.HandLandmark.MIDDLE_FINGER_TIP]
+    ring_tip = landmarks[mp_hands.HandLandmark.RING_FINGER_TIP]
+    pinky_tip = landmarks[mp_hands.HandLandmark.PINKY_TIP]
+    thumb_tip = landmarks[mp_hands.HandLandmark.THUMB_TIP]
+
+    # Margins and thresholds - adjust as needed
+    margin_y = 0.03  # How far above wrist index/middle must be
+    min_finger_separation = 0.04  # Horizontal gap needed between index and middle
+    vertical_threshold = 0.03  # Max vertical difference allowed between index and middle tips
+
+    # Check that index and middle are well above the wrist
+    index_extended = index_tip.y < (wrist_y - margin_y)
+    middle_extended = middle_tip.y < (wrist_y - margin_y)
+
+    # Check vertical alignment - they should be at similar height
+    similar_height = abs(index_tip.y - middle_tip.y) < vertical_threshold
+
+    # Check horizontal separation
+    v_shape = abs(index_tip.x - middle_tip.x) > min_finger_separation
+
+    # Other fingers folded (below wrist or not extended significantly)
+    ring_folded = ring_tip.y > wrist_y
+    pinky_folded = pinky_tip.y > wrist_y
+    thumb_folded = thumb_tip.y > wrist_y
+
+    # All conditions must be met
+    if index_extended and middle_extended and similar_height and v_shape and ring_folded and pinky_folded and thumb_folded:
+        return True
+
+    return False
+
+
+
+
 def recognize_gesture(landmarks):
     global selected_item_index, current_menu, current_sub_menu_items, scroll_index
 
@@ -111,10 +158,10 @@ def recognize_gesture(landmarks):
     wrist = landmarks[mp_hands.HandLandmark.WRIST]
     thumb_tip = landmarks[mp_hands.HandLandmark.THUMB_TIP]
     pinky_tip = landmarks[mp_hands.HandLandmark.PINKY_TIP]
-    ring_tip = landmarks[mp_hands.HandLandmark.RING_FINGER_TIP]  # YENİ EKLENDİ
+    ring_tip = landmarks[mp_hands.HandLandmark.RING_FINGER_TIP]
 
     # Check for Pointing Gesture
-    if index_tip.y < middle_tip.y:  # Index finger is raised
+    if index_tip.y < middle_tip.y:  # Index finger is raised more than middle
         x = index_tip.x
         y = index_tip.y
         angle = math.degrees(math.atan2(y - 0.5, x - 0.5)) + 90
@@ -122,12 +169,12 @@ def recognize_gesture(landmarks):
         selected_item_index = int(len(menu_items) * angle / 360) % len(menu_items)
         return "Pointing Gesture"
 
-    # Check for Open Hand Gesture (all fingers extended, including ring finger)
+    # Check for Open Hand Gesture (all fingers extended)
     elif all([index_tip.y < wrist.y,
               middle_tip.y < wrist.y,
               thumb_tip.y < wrist.y,
               pinky_tip.y < wrist.y,
-              ring_tip.y < wrist.y]):  # Yüzük parmağı da dahil edildi
+              ring_tip.y < wrist.y]):
         if current_menu == "main":
             # Open sub-menu
             selected_item = menu_items[selected_item_index]
@@ -137,10 +184,10 @@ def recognize_gesture(landmarks):
         return "Open Hand Gesture"
 
     return "Unknown Gesture"
-back_button_selected = False  # YENİ EKLENDİ
+
 
 def update_video():
-    global selected_item_index, scroll_index, current_menu, back_button_selected
+    global selected_item_index, scroll_index, current_menu
     ret, frame = cap.read()
     if not ret:
         return
@@ -161,6 +208,7 @@ def update_video():
             gesture = recognize_gesture(hand_landmarks.landmark)
             thumb_gesture = detect_thumbs_gesture(hand_landmarks.landmark)
 
+            # If in main menu
             if current_menu == "main":
                 draw_circular_menu(selected_item_index)
                 if gesture == "Pointing Gesture":
@@ -174,8 +222,9 @@ def update_video():
                         fill="blue", outline="black", tags="cursor"
                     )
 
+            # If in submenu
             elif current_menu == "submenu":
-                # Sub menüde sadece thumbs up/down ile scroll yapılıyor.
+                # Scroll with thumbs
                 if thumb_gesture == "Thumbs Up" and scroll_index > 0:
                     scroll_index -= 1
                 elif thumb_gesture == "Thumbs Down" and scroll_index < len(current_sub_menu_items) - 10:
@@ -183,27 +232,19 @@ def update_video():
 
                 draw_listed_menu(current_sub_menu_items, scroll_index)
 
-                # Submenüde pointing gesture sadece cursor hareketi ve back butonuna işaret etmek için
+                # Detect peace sign to go back to main menu
+                if detect_peace_sign(hand_landmarks.landmark):
+                    current_menu = "main"
+
+                # Pointing gesture in submenu shows cursor but no back button now
                 if gesture == "Pointing Gesture":
                     index_tip = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
-                    # Tüm canvas alanına ölçekleme (1200x800)
                     canvas_x = index_tip.x * 1200
                     canvas_y = index_tip.y * 800
                     menu_canvas.create_oval(
                         canvas_x - 10, canvas_y - 10, canvas_x + 10, canvas_y + 10,
                         fill="blue", outline="black", tags="cursor"
                     )
-
-                    # Back butonuna işaret etme kontrolü
-                    if 10 <= canvas_x <= 110 and 10 <= canvas_y <= 50:
-                        back_button_selected = True
-                    else:
-                        back_button_selected = False
-
-                # Eğer open hand gesture yapılırsa ve back_button_selected True ise ana menüye dön
-                if gesture == "Open Hand Gesture" and back_button_selected:
-                    current_menu = "main"
-                    back_button_selected = False
 
     resized_frame = cv2.resize(frame_rgb, (450, 325))
     frame_image = ImageTk.PhotoImage(image=Image.fromarray(resized_frame))
@@ -214,6 +255,7 @@ def update_video():
     menu_canvas.tag_lower("camera")
 
     root.after(10, update_video)
+
 
 # Initial menu drawing
 draw_circular_menu(selected_item_index)
