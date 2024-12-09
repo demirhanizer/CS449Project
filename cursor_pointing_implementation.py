@@ -3,8 +3,6 @@ import mediapipe as mp
 import tkinter as tk
 from PIL import Image, ImageTk
 import math
-import pyautogui  # For scrolling functionality
-import time
 
 # Initialize MediaPipe Hands
 mp_hands = mp.solutions.hands
@@ -12,33 +10,38 @@ mp_drawing = mp.solutions.drawing_utils
 hands = mp_hands.Hands(min_detection_confidence=0.7, min_tracking_confidence=0.7)
 
 # Start video capture
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(1)
 
 # Initialize Tkinter GUI
 root = tk.Tk()
 root.title("Circular Menu with Gesture Control")
 root.geometry("1200x800")
 
-# Global state
-initial_mode = True  # Start with initial mode
-mode = None           # Will be "menu" or "list" after initial selection
-finger_up_start = None
-finger_down_start = None
-GESTURE_HOLD_TIME = 3.0  # seconds required to hold a gesture
-
-# For listed mode: continuous navigation
-SCROLL_DELAY = 0.5  # How often to move when holding thumbs up/down
-last_gesture = None
-last_gesture_time = None
-
 # Circular menu items
 menu_items = [
-    "Listed", "Hoş Geldiniz", "Teşekkür Ederim", "Tuş Takımı",
-    "Hoşça kal", "Hayır", "Evet", "Geri", "Merhaba, Nasılsın?"
+    "Turlar", "Rehber Bilgisi", "Sanat Eserleri",
+    "Etkinlikler", "Ziyaretçi Rehberi", "Kafeterya",
+    "Biletler", "Hediye Dükkanı"
 ]
-selected_item_index = 0
 
-# Canvas for the menu and camera feed
+# Submenus for each main menu item
+sub_menus = {
+    "Turlar": [f"Tur {i}" for i in range(1, 21)],
+    "Rehber Bilgisi": [f"Rehber {i}" for i in range(1, 21)],
+    "Sanat Eserleri": [f"Eser {i}" for i in range(1, 21)],
+    "Etkinlikler": [f"Etkinlik {i}" for i in range(1, 21)],
+    "Ziyaretçi Rehberi": [f"Rehberlik Bilgisi {i}" for i in range(1, 21)],
+    "Kafeterya": [f"Menü {i}" for i in range(1, 21)],
+    "Biletler": [f"Bilet Tipi {i}" for i in range(1, 21)],
+    "Hediye Dükkanı": [f"Ürün {i}" for i in range(1, 21)],
+}
+
+current_menu = "main"
+current_sub_menu_items = []
+selected_item_index = 0
+scroll_index = 0
+
+# Canvas for the circular menu and camera feed
 menu_canvas = tk.Canvas(root, width=1200, height=800, bg="lightgray")
 menu_canvas.pack()
 
@@ -50,349 +53,171 @@ selected_text_label.place(x=10, y=750)
 center_x, center_y = 600, 250
 menu_radius = 180
 
-# In listed mode, we will display a Listbox with multiple items
-listbox = tk.Listbox(root, width=50, height=20, font=("Helvetica", 20))
-listbox.place_forget()  # Hide initially
-for item in menu_items:
-    listbox.insert(tk.END, item)
-
-# Keep track of currently highlighted item in list mode
-listed_highlight_index = 0
-listbox.select_set(listed_highlight_index)
-listbox.activate(listed_highlight_index)
-
-def draw_initial_menu():
-    """Draw the initial screen with two options: Listed and Menu Tab."""
-    menu_canvas.delete("all")  # Clear so we can redraw camera and overlays
-    menu_canvas.create_text(600, 100, text="Choose Your Option by Holding Gesture for 3s",
-                            fill="black", font=("Helvetica", 24, "bold"))
-    # Draw "Listed" button
-    menu_canvas.create_rectangle(400, 300, 550, 400, fill="white", outline="black", width=2, tags="initial")
-    menu_canvas.create_text(475, 350, text="Listed", fill="black", font=("Helvetica", 16, "bold"), tags="initial")
-
-    # Draw "Menu Tab" button
-    menu_canvas.create_rectangle(650, 300, 800, 400, fill="white", outline="black", width=2, tags="initial")
-    menu_canvas.create_text(725, 350, text="Menu Tab", fill="black", font=("Helvetica", 16, "bold"), tags="initial")
 
 def draw_circular_menu(selected_index):
-    if initial_mode:
-        return  # Don't draw the circular menu during initial mode
-    menu_canvas.delete("menu")  # Clear previous menu elements
+    """
+    Draw the circular menu on the canvas with the highlighted item.
+    """
+    menu_canvas.delete("menu")
     angle_step = 360 / len(menu_items)
-
     for i, item in enumerate(menu_items):
         angle = math.radians(i * angle_step - 90)
         x = center_x + menu_radius * math.cos(angle)
         y = center_y + menu_radius * math.sin(angle)
         color = "red" if i == selected_index else "black"
-
-        # Draw menu item box
         box_x1, box_y1 = x - 50, y - 20
         box_x2, box_y2 = x + 50, y + 20
         menu_canvas.create_rectangle(box_x1, box_y1, box_x2, box_y2, fill="white", outline=color, width=2, tags="menu")
-
-        # Draw the text
         menu_canvas.create_text(x, y, text=item, fill=color, font=("Helvetica", 12, "bold"), tags="menu")
 
+
+def draw_listed_menu(items, scroll_index):
+    """
+    Draw the listed menu with scroll functionality.
+    """
+    menu_canvas.delete("menu")
+    visible_items = items[scroll_index:scroll_index + 10]
+    for i, item in enumerate(visible_items):
+        y = 100 + i * 40
+        menu_canvas.create_rectangle(400, y, 800, y + 30, fill="white", outline="black", tags="menu")
+        menu_canvas.create_text(600, y + 15, text=item, fill="black", font=("Helvetica", 12, "bold"), tags="menu")
+
+    # Back button
+    menu_canvas.create_rectangle(10, 10, 110, 50, fill="gray", outline="black", tags="menu")
+    menu_canvas.create_text(60, 30, text="Back", fill="white", font=("Helvetica", 12, "bold"), tags="menu")
+
+
 def detect_thumbs_gesture(landmarks):
+    """
+    Detect thumbs up or thumbs down gestures for scrolling.
+    """
     thumb_tip = landmarks[mp_hands.HandLandmark.THUMB_TIP]
     thumb_ip = landmarks[mp_hands.HandLandmark.THUMB_IP]
     thumb_mcp = landmarks[mp_hands.HandLandmark.THUMB_MCP]
     thumb_cmc = landmarks[mp_hands.HandLandmark.THUMB_CMC]
-
-    other_landmarks = [
-        landmarks[mp_hands.HandLandmark.INDEX_FINGER_TIP],
-        landmarks[mp_hands.HandLandmark.MIDDLE_FINGER_TIP],
-        landmarks[mp_hands.HandLandmark.RING_FINGER_TIP],
-        landmarks[mp_hands.HandLandmark.PINKY_TIP],
-        landmarks[mp_hands.HandLandmark.WRIST]
-    ]
-
-    # Check thumbs up
     thumb_upwards = thumb_tip.y < thumb_ip.y < thumb_mcp.y < thumb_cmc.y
-    thumb_higher_than_others = all(thumb_tip.y < lm.y for lm in other_landmarks)
-    if thumb_upwards and thumb_higher_than_others:
-        return "Thumbs Up"
-
-    # Check thumbs down
     thumb_downwards = thumb_tip.y > thumb_ip.y > thumb_mcp.y > thumb_cmc.y
-    thumb_lower_than_others = all(thumb_tip.y > lm.y for lm in other_landmarks)
-    if thumb_downwards and thumb_lower_than_others:
+    if thumb_upwards:
+        return "Thumbs Up"
+    if thumb_downwards:
         return "Thumbs Down"
-
     return "No Gesture"
-
 def recognize_gesture(landmarks):
-    global selected_item_index
+    global selected_item_index, current_menu, current_sub_menu_items, scroll_index
+
+    # Extract necessary landmarks
     index_tip = landmarks[mp_hands.HandLandmark.INDEX_FINGER_TIP]
     middle_tip = landmarks[mp_hands.HandLandmark.MIDDLE_FINGER_TIP]
     wrist = landmarks[mp_hands.HandLandmark.WRIST]
+    thumb_tip = landmarks[mp_hands.HandLandmark.THUMB_TIP]
+    pinky_tip = landmarks[mp_hands.HandLandmark.PINKY_TIP]
+    ring_tip = landmarks[mp_hands.HandLandmark.RING_FINGER_TIP]  # YENİ EKLENDİ
 
-    if mode == "menu":
-        # Index Finger Pointing Gesture
-        if index_tip.y < middle_tip.y:  # Index finger is raised
-            x = index_tip.x
-            y = index_tip.y
-            # Compute angle for menu selection
-            angle = math.degrees(math.atan2(y - 0.5, x - 0.5)) + 90
-            angle = (angle + 360) % 360  # Normalize angle
-            selected_item_index = int(len(menu_items) * angle / 360) % len(menu_items)
-            return "Pointing Gesture", angle, f"Highlighting: {menu_items[selected_item_index]}"
+    # Check for Pointing Gesture
+    if index_tip.y < middle_tip.y:  # Index finger is raised
+        x = index_tip.x
+        y = index_tip.y
+        angle = math.degrees(math.atan2(y - 0.5, x - 0.5)) + 90
+        angle = (angle + 360) % 360  # Normalize angle
+        selected_item_index = int(len(menu_items) * angle / 360) % len(menu_items)
+        return "Pointing Gesture"
 
-        # Open Hand Gesture to select (in menu mode only)
-        if abs(index_tip.y - wrist.y) > 0.2 and abs(middle_tip.y - wrist.y) > 0.2:
-            return "Open Hand Gesture", None, f"Selected: {menu_items[selected_item_index]}"
+    # Check for Open Hand Gesture (all fingers extended, including ring finger)
+    elif all([index_tip.y < wrist.y,
+              middle_tip.y < wrist.y,
+              thumb_tip.y < wrist.y,
+              pinky_tip.y < wrist.y,
+              ring_tip.y < wrist.y]):  # Yüzük parmağı da dahil edildi
+        if current_menu == "main":
+            # Open sub-menu
+            selected_item = menu_items[selected_item_index]
+            current_sub_menu_items = sub_menus[selected_item]
+            current_menu = "submenu"
+            scroll_index = 0
+        return "Open Hand Gesture"
 
-    return "Unknown Gesture", None, "No Action"
-
-def check_initial_selection(landmarks):
-    global finger_up_start, finger_down_start, initial_mode, mode
-    index_tip = landmarks[mp_hands.HandLandmark.INDEX_FINGER_TIP]
-    middle_tip = landmarks[mp_hands.HandLandmark.MIDDLE_FINGER_TIP]
-
-    # Finger up criteria for Listed
-    finger_up = index_tip.y < middle_tip.y
-    current_time = time.time()
-
-    if finger_up:
-        # If finger is up, we reset down timer and start/uphold up timer
-        finger_down_start = None
-        if finger_up_start is None:
-            finger_up_start = current_time
-        else:
-            # Check if time is enough to choose "Listed"
-            time_elapsed = current_time - finger_up_start
-            if time_elapsed >= GESTURE_HOLD_TIME:
-                # User chose "Listed"
-                mode = "list"
-                initial_mode = False
-                clear_initial_screen()
-    else:
-        # Finger not up means consider finger down for "Menu Tab"
-        finger_up_start = None
-        # Check if finger down is stable
-        if finger_down_start is None:
-            finger_down_start = current_time
-        else:
-            time_elapsed = current_time - finger_down_start
-            if time_elapsed >= GESTURE_HOLD_TIME:
-                # User chose "Menu Tab"
-                mode = "menu"
-                initial_mode = False
-                clear_initial_screen()
-
-def clear_initial_screen():
-    """Clear the initial screen and proceed according to chosen mode."""
-    menu_canvas.delete("all")
-    if mode == "menu":
-        draw_circular_menu(selected_item_index)
-    elif mode == "list":
-        show_listed_view()
-
-def show_listed_view():
-    """Show the listbox of items in listed mode."""
-    listbox.place(x=400, y=100)
-    selected_text_label.config(text="Selected: None (Listed Mode)")
-
-def switch_to_listed_mode():
-    global mode, listed_highlight_index
-    mode = "list"
-    menu_canvas.delete("all")
-    listbox.place(x=400, y=100)
-    selected_text_label.config(text="Selected: None (Listed Mode)")
-    # Reset highlight to 0
-    listed_highlight_index = 0
-    listbox.select_clear(0, tk.END)
-    listbox.select_set(listed_highlight_index)
-    listbox.activate(listed_highlight_index)
-
-def switch_to_menu_mode():
-    global mode
-    mode = "menu"
-    listbox.place_forget()
-    draw_circular_menu(selected_item_index)
-    selected_text_label.config(text="Selected: None")
-
-def move_list_highlight(direction):
-    """Move the highlighted selection in the list up or down by one item."""
-    global listed_highlight_index
-    if direction == "up":
-        if listed_highlight_index > 0:
-            listed_highlight_index -= 1
-    elif direction == "down":
-        if listed_highlight_index < listbox.size() - 1:
-            listed_highlight_index += 1
-
-    listbox.select_clear(0, tk.END)
-    listbox.select_set(listed_highlight_index)
-    listbox.activate(listed_highlight_index)
-
-def handle_listed_mode_gesture(gesture):
-    """
-    In listed mode:
-    - Holding Thumbs Up moves continuously up through the items.
-    - Holding Thumbs Down moves continuously down through the items.
-    - Movement happens at an interval defined by SCROLL_DELAY.
-    """
-    global last_gesture, last_gesture_time
-    current_time = time.time()
-
-    if gesture in ["Thumbs Up", "Thumbs Down"]:
-        if last_gesture == gesture:
-            # Same gesture continues
-            if current_time - last_gesture_time >= SCROLL_DELAY:
-                direction = "up" if gesture == "Thumbs Up" else "down"
-                move_list_highlight(direction)
-                last_gesture_time = current_time
-        else:
-            # New gesture detected
-            last_gesture = gesture
-            last_gesture_time = current_time
-            # Move once immediately
-            direction = "up" if gesture == "Thumbs Up" else "down"
-            move_list_highlight(direction)
-    else:
-        # No thumbs gesture, reset
-        last_gesture = None
-        last_gesture_time = None
-
-def display_initial_countdown():
-    """Display countdown for selecting Listed or Menu Tab in initial mode."""
-    menu_canvas.delete("countdown")
-    current_time = time.time()
-
-    # Show countdown if finger_up_start is active
-    if finger_up_start is not None:
-        time_elapsed = current_time - finger_up_start
-        time_left = max(GESTURE_HOLD_TIME - time_elapsed, 0)
-        if time_left > 0:
-            menu_canvas.create_text(600, 200, text=f"Selecting 'Listed' in {time_left:.1f}s",
-                                    fill="blue", font=("Helvetica", 20), tags="countdown")
-
-    # Show countdown if finger_down_start is active and finger_up_start is not
-    elif finger_down_start is not None:
-        time_elapsed = current_time - finger_down_start
-        time_left = max(GESTURE_HOLD_TIME - time_elapsed, 0)
-        if time_left > 0:
-            menu_canvas.create_text(600, 200, text=f"Selecting 'Menu Tab' in {time_left:.1f}s",
-                                    fill="blue", font=("Helvetica", 20), tags="countdown")
+    return "Unknown Gesture"
+back_button_selected = False  # YENİ EKLENDİ
 
 def update_video():
-    global selected_item_index, initial_mode, mode
+    global selected_item_index, scroll_index, current_menu, back_button_selected
     ret, frame = cap.read()
     if not ret:
         return
 
-    # Flip the frame
+    # Flip the frame for a mirror effect
     frame = cv2.flip(frame, 1)
 
-    # Convert the frame to RGB for Mediapipe
+    # Convert the frame to RGB for Mediapipe processing
     frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     results = hands.process(frame_rgb)
 
-    if initial_mode:
-        # Always draw initial menu and show camera
-        draw_initial_menu()
+    # Clear previous camera frame and cursor
+    menu_canvas.delete("camera")
+    menu_canvas.delete("cursor")
 
-    # Show camera feed in the initial mode on the right side
+    if results.multi_hand_landmarks:
+        for hand_landmarks in results.multi_hand_landmarks:
+            gesture = recognize_gesture(hand_landmarks.landmark)
+            thumb_gesture = detect_thumbs_gesture(hand_landmarks.landmark)
+
+            if current_menu == "main":
+                draw_circular_menu(selected_item_index)
+                if gesture == "Pointing Gesture":
+                    # Draw cursor in main menu
+                    angle = (360 / len(menu_items)) * selected_item_index - 90
+                    cursor_angle = math.radians(angle)
+                    cursor_x = center_x + menu_radius * 0.7 * math.cos(cursor_angle)
+                    cursor_y = center_y + menu_radius * 0.7 * math.sin(cursor_angle)
+                    menu_canvas.create_oval(
+                        cursor_x - 10, cursor_y - 10, cursor_x + 10, cursor_y + 10,
+                        fill="blue", outline="black", tags="cursor"
+                    )
+
+            elif current_menu == "submenu":
+                # Sub menüde sadece thumbs up/down ile scroll yapılıyor.
+                if thumb_gesture == "Thumbs Up" and scroll_index > 0:
+                    scroll_index -= 1
+                elif thumb_gesture == "Thumbs Down" and scroll_index < len(current_sub_menu_items) - 10:
+                    scroll_index += 1
+
+                draw_listed_menu(current_sub_menu_items, scroll_index)
+
+                # Submenüde pointing gesture sadece cursor hareketi ve back butonuna işaret etmek için
+                if gesture == "Pointing Gesture":
+                    index_tip = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
+                    # Tüm canvas alanına ölçekleme (1200x800)
+                    canvas_x = index_tip.x * 1200
+                    canvas_y = index_tip.y * 800
+                    menu_canvas.create_oval(
+                        canvas_x - 10, canvas_y - 10, canvas_x + 10, canvas_y + 10,
+                        fill="blue", outline="black", tags="cursor"
+                    )
+
+                    # Back butonuna işaret etme kontrolü
+                    if 10 <= canvas_x <= 110 and 10 <= canvas_y <= 50:
+                        back_button_selected = True
+                    else:
+                        back_button_selected = False
+
+                # Eğer open hand gesture yapılırsa ve back_button_selected True ise ana menüye dön
+                if gesture == "Open Hand Gesture" and back_button_selected:
+                    current_menu = "main"
+                    back_button_selected = False
+
     resized_frame = cv2.resize(frame_rgb, (450, 325))
     frame_image = ImageTk.PhotoImage(image=Image.fromarray(resized_frame))
-    # Display camera feed
-    menu_canvas.create_image(700, 480, anchor=tk.NW, image=frame_image, tags="camera")
+    menu_canvas.create_image(400, 480, anchor=tk.NW, image=frame_image, tags="camera")
     menu_canvas.image = frame_image
 
-    if initial_mode:
-        if results.multi_hand_landmarks:
-            for hand_landmarks in results.multi_hand_landmarks:
-                check_initial_selection(hand_landmarks.landmark)
-        # Show countdown every frame in initial mode
-        display_initial_countdown()
-    else:
-        # After initial mode is done, proceed according to current mode
-        if results.multi_hand_landmarks:
-            for hand_landmarks in results.multi_hand_landmarks:
-                thumb_gesture = detect_thumbs_gesture(hand_landmarks.landmark)
+    # Kamera görüntüsünü arkaya al
+    menu_canvas.tag_lower("camera")
 
-                if mode == "menu":
-                    menu_canvas.delete("camera")
-                    menu_canvas.delete("cursor")
-
-                    # System scrolling if you wish
-                    if thumb_gesture == "Thumbs Up":
-                        pyautogui.scroll(20)
-                    elif thumb_gesture == "Thumbs Down":
-                        pyautogui.scroll(-20)
-
-                    gesture, angle, action = recognize_gesture(hand_landmarks.landmark)
-
-                    if gesture == "Open Hand Gesture":
-                        selected_text_label.config(text=action)
-                        # If user selected "Listed"
-                        if menu_items[selected_item_index] == "Listed":
-                            switch_to_listed_mode()
-                    else:
-                        draw_circular_menu(selected_item_index)
-
-                    # Draw hand landmarks for debugging (optional)
-                    mp_drawing.draw_landmarks(frame_rgb, hand_landmarks, mp_hands.HAND_CONNECTIONS)
-
-                    # Display camera in menu mode
-                    resized_frame = cv2.resize(frame_rgb, (450, 325))
-                    frame_image = ImageTk.PhotoImage(image=Image.fromarray(resized_frame))
-                    menu_canvas.create_image(400, 480, anchor=tk.NW, image=frame_image, tags="camera")
-                    menu_canvas.image = frame_image
-
-                    # Draw cursor if pointing
-                    if gesture == "Pointing Gesture" and angle is not None:
-                        cursor_angle = math.radians(angle - 90)
-                        cursor_radius = menu_radius * 0.7
-                        cursor_x = center_x + cursor_radius * math.cos(cursor_angle)
-                        cursor_y = center_y + cursor_radius * math.sin(cursor_angle)
-                        menu_canvas.create_oval(
-                            cursor_x - 10, cursor_y - 10, cursor_x + 10, cursor_y + 10,
-                            fill="blue", outline="black", tags="cursor"
-                        )
-
-                elif mode == "list":
-                    # In listed mode, handle thumbs gestures for continuous navigation
-                    handle_listed_mode_gesture(thumb_gesture)
-
-                    # Draw hand landmarks for debugging (optional)
-                    mp_drawing.draw_landmarks(frame_rgb, hand_landmarks, mp_hands.HAND_CONNECTIONS)
-
-                    # Display camera feed in listed mode (top-left corner)
-                    menu_canvas.delete("all")
-                    resized_list_frame = cv2.resize(frame_rgb, (200, 150))
-                    frame_image_list = ImageTk.PhotoImage(image=Image.fromarray(resized_list_frame))
-                    menu_canvas.create_image(10, 10, anchor=tk.NW, image=frame_image_list)
-                    menu_canvas.image = frame_image_list
-        else:
-            # No hands detected
-            if mode == "menu":
-                # Still need to show camera feed
-                menu_canvas.delete("camera")
-                menu_canvas.delete("cursor")
-                resized_frame = cv2.resize(frame_rgb, (450, 325))
-                frame_image = ImageTk.PhotoImage(image=Image.fromarray(resized_frame))
-                menu_canvas.create_image(400, 480, anchor=tk.NW, image=frame_image, tags="camera")
-                menu_canvas.image = frame_image
-            elif mode == "list":
-                # Just keep showing the list and camera feed in the corner
-                menu_canvas.delete("all")
-                resized_frame = cv2.resize(frame_rgb, (200, 150))
-                frame_image = ImageTk.PhotoImage(image=Image.fromarray(resized_frame))
-                menu_canvas.create_image(10, 10, anchor=tk.NW, image=frame_image)
-                menu_canvas.image = frame_image
-
-    # Schedule next frame
     root.after(10, update_video)
 
-# Start processing video in the background
+# Initial menu drawing
+draw_circular_menu(selected_item_index)
 update_video()
-
-# Run the Tkinter main loop
 root.mainloop()
-
-# Release resources
 cap.release()
 cv2.destroyAllWindows()
