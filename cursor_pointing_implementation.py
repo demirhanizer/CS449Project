@@ -27,14 +27,22 @@ menu_items = [
 
 # Submenus for each main menu item
 sub_menus = {
-    "Turlar": [f"Tur {i}" for i in range(1, 21)],
-    "Rehber Bilgisi": [f"Rehber {i}" for i in range(1, 21)],
-    "Sanat Eserleri": [f"Eser {i}" for i in range(1, 21)],
-    "Etkinlikler": [f"Etkinlik {i}" for i in range(1, 21)],
-    "Ziyaretçi Rehberi": [f"Rehberlik Bilgisi {i}" for i in range(1, 21)],
-    "Kafeterya": [f"Menü {i}" for i in range(1, 21)],
-    "Biletler": [f"Bilet Tipi {i}" for i in range(1, 21)],
-    "Hediye Dükkanı": [f"Ürün {i}" for i in range(1, 21)],
+    "Turlar": ["Klasik Tur", "Modern Sanat Turu", "Mimari Tur", 
+               "Tarih Tur", "Aile Turu", "Gece Turu", "Kısa Tur"],
+    "Rehber Bilgisi": ["Sesli Rehber", "Yazılı Rehber", "Sanal Rehber", 
+                       "Çocuk Rehberi", "Erişilebilirlik Rehberi", "Video Rehber", "Dil Seçenekleri"],
+    "Sanat Eserleri": ["Resimler", "Heykeller", "Çağdaş Sanat", 
+                       "Klasik Sanat", "Yerel Sanat", "Geçici Sergiler", "Koleksiyonlar"],
+    "Etkinlikler": ["Atölyeler", "Konserler", "Konferanslar", 
+                    "Sergi Açılışları", "Tiyatro", "Film Gösterimi", "Özel Etkinlikler"],
+    "Ziyaretçi Rehberi": ["Haritalar", "Giriş Saatleri", "Kurallar", 
+                          "Güvenlik Bilgisi", "Ulaşım Bilgisi", "Wi-Fi Kullanımı", "Engelliler İçin Bilgi"],
+    "Kafeterya": ["Kahve Çeşitleri", "Tatlılar", "Sandviçler", 
+                  "Vejetaryen Seçenekler", "Glütensiz Seçenekler", "İçecekler", "Menüler"],
+    "Biletler": ["Yetişkin Bilet", "Öğrenci Bilet", "Aile Bilet", 
+                 "Grup Bilet", "Sezonluk Bilet", "Ücretsiz Giriş Günleri", "Özel Biletler"],
+    "Hediye Dükkanı": ["Posterler", "Kitaplar", "Kupa Bardaklar", 
+                       "Tişörtler", "Anahtarlıklar", "Sanat Replikaları", "Oyuncaklar"]
 }
 
 current_menu = "main"
