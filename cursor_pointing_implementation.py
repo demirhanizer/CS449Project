@@ -321,9 +321,9 @@ def update_video():
     if selected_item is not None:
         selected_text_label.configure(text=f"Selected: {selected_item}")
 
-    resized_frame = cv2.resize(frame, (450, 325))  # Burada frame_rgb yerine frame kullanıyoruz
+    resized_frame = cv2.resize(frame, (300, 200))  # Burada frame_rgb yerine frame kullanıyoruz
     frame_image = ImageTk.PhotoImage(image=Image.fromarray(cv2.cvtColor(resized_frame, cv2.COLOR_BGR2RGB)))
-    menu_canvas.create_image(400, 480, anchor=tk.NW, image=frame_image, tags="camera")
+    menu_canvas.create_image(900, 600, anchor=tk.NW, image=frame_image, tags="camera")
     menu_canvas.image = frame_image
 
 
