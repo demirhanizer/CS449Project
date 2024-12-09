@@ -28,22 +28,39 @@ menu_items = [
 # Submenus for each main menu item
 sub_menus = {
     "Turlar": ["Klasik Tur", "Modern Sanat Turu", "Mimari Tur", 
-               "Tarih Tur", "Aile Turu", "Gece Turu", "Kısa Tur"],
+               "Tarih Tur", "Aile Turu", "Gece Turu", "Kısa Tur", 
+               "Doğa Turu", "Sanal Tur", "VIP Tur", "Fotoğraf Turu", "Çocuklar İçin Turlar", 
+               "Kültürel Turlar", "Müzik Turu", "Edebiyat Turu", "Özel Tarih Turu", "Gastronomi Turu"],
     "Rehber Bilgisi": ["Sesli Rehber", "Yazılı Rehber", "Sanal Rehber", 
-                       "Çocuk Rehberi", "Erişilebilirlik Rehberi", "Video Rehber", "Dil Seçenekleri"],
+                       "Çocuk Rehberi", "Erişilebilirlik Rehberi", "Video Rehber", "Dil Seçenekleri", 
+                       "Rehber Bul", "Grup Rehberi", "Uzman Rehberler", "Tur Rehberi Seçimi", "Soru-Cevap", 
+                       "Rehber Programları", "İletişim Bilgileri", "Rehber Rezervasyonu", "Görsel Rehberlik", "Konum Bazlı Rehber"],
     "Sanat Eserleri": ["Resimler", "Heykeller", "Çağdaş Sanat", 
-                       "Klasik Sanat", "Yerel Sanat", "Geçici Sergiler", "Koleksiyonlar"],
+                       "Klasik Sanat", "Yerel Sanat", "Geçici Sergiler", "Koleksiyonlar", 
+                       "Fotoğraf Sergileri", "Multimedya Eserleri", "Dijital Sanat", "Tarihi Kalıntılar", "El Yazmaları", 
+                       "Sanatçılar Hakkında Bilgi", "Müzik Aletleri Sergisi", "Miniatürler", "Dekoratif Sanatlar", "Endüstriyel Tasarım"],
     "Etkinlikler": ["Atölyeler", "Konserler", "Konferanslar", 
-                    "Sergi Açılışları", "Tiyatro", "Film Gösterimi", "Özel Etkinlikler"],
+                    "Sergi Açılışları", "Tiyatro", "Film Gösterimi", "Özel Etkinlikler", 
+                    "Canlı Performanslar", "Çocuk Etkinlikleri", "Kitap İmzaları", "Yarışmalar", "Festival Etkinlikleri", 
+                    "Eğitim Seminerleri", "Yoga Atölyeleri", "Müzik Dinletisi", "Dans Gösterileri", "İmza Günleri"],
     "Ziyaretçi Rehberi": ["Haritalar", "Giriş Saatleri", "Kurallar", 
-                          "Güvenlik Bilgisi", "Ulaşım Bilgisi", "Wi-Fi Kullanımı", "Engelliler İçin Bilgi"],
+                          "Güvenlik Bilgisi", "Ulaşım Bilgisi", "Wi-Fi Kullanımı", "Engelliler İçin Bilgi", 
+                          "Yemek Alanları", "Tuvaletler", "Yakınlardaki Oteller", "Park Alanları", "Telefon Şarj Noktaları", 
+                          "Bebek Bakım Alanları", "Valiz Saklama Noktaları", "Turist Bilgi Merkezi", "Acil Durum Noktaları", "Yakın Restoranlar"],
     "Kafeterya": ["Kahve Çeşitleri", "Tatlılar", "Sandviçler", 
-                  "Vejetaryen Seçenekler", "Glütensiz Seçenekler", "İçecekler", "Menüler"],
+                  "Vejetaryen Seçenekler", "Glütensiz Seçenekler", "İçecekler", "Menüler", 
+                  "Çocuk Menüsü", "Sağlıklı Atıştırmalıklar", "Yerel Lezzetler", "Vegan Seçenekler", "Özel Tatlar", 
+                  "Sıcak Çikolatalar", "Kahvaltı Menüsü", "Kış İçecekleri", "Dondurma Çeşitleri", "Çay Çeşitleri"],
     "Biletler": ["Yetişkin Bilet", "Öğrenci Bilet", "Aile Bilet", 
-                 "Grup Bilet", "Sezonluk Bilet", "Ücretsiz Giriş Günleri", "Özel Biletler"],
+                 "Grup Bilet", "Sezonluk Bilet", "Ücretsiz Giriş Günleri", "Özel Biletler", 
+                 "Online Bilet", "Erken Rezervasyon", "Acil Giriş Bileti", "Kombinasyon Biletleri", "Rehberli Tur Bileti", 
+                 "VIP Bilet", "İptal Edilebilir Bilet", "Çift Kişilik Bilet", "Etkinlik Kombinasyonu", "Yıllık Üyelik Bileti"],
     "Hediye Dükkanı": ["Posterler", "Kitaplar", "Kupa Bardaklar", 
-                       "Tişörtler", "Anahtarlıklar", "Sanat Replikaları", "Oyuncaklar"]
+                       "Tişörtler", "Anahtarlıklar", "Sanat Replikaları", "Oyuncaklar", 
+                       "Mıknatıslar", "Çantalar", "Takılar", "El Yapımı Ürünler", "Özel Koleksiyonlar", 
+                       "Kırtasiye Malzemeleri", "Defterler", "Biblolar", "Sanatçı İmzalı Ürünler", "Sürdürülebilir Hediyeler"]
 }
+
 
 current_menu = "main"
 current_sub_menu_items = []
