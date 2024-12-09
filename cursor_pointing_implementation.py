@@ -52,7 +52,7 @@ scroll_index = 0
 
 # For slowing down scrolling
 last_scroll_frame = 0
-scroll_cooldown_frames = 20  # Adjust to slow down scrolling. Higher = slower.
+scroll_cooldown_frames = 40  # Adjust to slow down scrolling. Higher = slower.
 
 # Canvas for the circular menu and camera feed
 menu_canvas = tk.Canvas(root, width=1200, height=800, bg="lightgray")
@@ -90,7 +90,7 @@ def draw_listed_menu(items, scroll_index, hovered_index=None):
     menu_canvas.delete("menu")
     visible_items = items[scroll_index:scroll_index + 10]
     for i, item in enumerate(visible_items):
-        y = 100 + i * 40
+        y = 100 + i * 60
         # If this item is hovered, highlight it differently
         if hovered_index == i:
             fill_color = "#e0f7fa"  # a light highlight color
@@ -198,7 +198,7 @@ def recognize_gesture(landmarks):
     return "Unknown Gesture"
 
 def update_video():
-    global selected_item_index, scroll_index, current_menu, current_sub_menu_items, last_scroll_frame
+    global selected_item_index, scroll_index, current_menu, current_sub_menu_items, last_scroll_frame, selection_made
     ret, frame = cap.read()
     if not ret:
         return
@@ -222,6 +222,13 @@ def update_video():
         # Collect all hands
         for hl in results.multi_hand_landmarks:
             hand_landmarks_list.append(hl.landmark)
+        
+            # El işaretlerini çerçeveye çiziyoruz
+            mp_drawing.draw_landmarks(
+                frame, hl, mp_hands.HAND_CONNECTIONS,
+                mp_drawing.DrawingSpec(color=(121, 22, 76), thickness=2, circle_radius=4),  # Nokta stilleri
+                mp_drawing.DrawingSpec(color=(250, 44, 250), thickness=2)  # Bağlantı stilleri
+            )
 
         # Process gestures after collecting all
         for i, hand_landmarks in enumerate(hand_landmarks_list):
@@ -273,47 +280,52 @@ def update_video():
                         last_scroll_frame = current_frame_id
 
                 # We'll decide on selection after checking all hands
-
         # After processing all hands, check selection condition
+        selection_made = False
         if current_menu == "submenu":
             # Redraw with hovered item
             draw_listed_menu(current_sub_menu_items, scroll_index, hovered_index=hovered_index)
 
             # Check peace sign for going back
-            # Do this after processing all hands so we can detect it from any hand
             for hl in hand_landmarks_list:
                 if detect_peace_sign(hl):
                     current_menu = "main"
                     break
 
-            # Selection condition:
-            # If hovered_index is not None and the hovering hand is open,
-            # we also need at least one OTHER hand to be open to allow selection.
-            if hovered_index is not None:
-                # Check if at least two hands are open:
-                # The hovered hand must be open, and another hand must also be open.
-                # We must identify which hand caused hover. Let's assume
-                # the hovered hand is the one where index finger matched the hover area.
-                # For simplicity, assume the last hand checked that gave hovered_index is the "hovering hand".
-                # We'll just check if at least two hands are open now.
-                open_count = 0
-                for hl in hand_landmarks_list:
-                    if detect_open_hand(hl):
-                        open_count += 1
+            # Seçim koşulu: hovered_index belirli ve açık el jesti var mı?
 
-                # We need at least two open hands:
-                if open_count >= 2:
-                    # Both conditions met: hovered and two open hands
-                    absolute_index = scroll_index + hovered_index
-                    selected_item = current_sub_menu_items[absolute_index]
+            if hovered_index is not None:  # Eğer bir öğe hover ediliyorsa
+                # hovered_index ile eşleşen imlecin (index parmağının) hover yaptığı öğe
+                absolute_index = scroll_index + hovered_index
+
+                for hl in hand_landmarks_list:
+                    index_tip = hl[mp_hands.HandLandmark.INDEX_FINGER_TIP]
+                    canvas_x = index_tip.x * 1200
+                    canvas_y = index_tip.y * 800
+
+                    # İmlecin (cursor) hover yaptığı öğenin bölgesinde mi?
+                    y = 100 + hovered_index * 60  # Her bir öğenin yüksekliğini kontrol et (40'tan 60'a çıkarıldı)
+                    if 400 <= canvas_x <= 800 and y <= canvas_y <= y + 30:  # İmleç hover edilen öğenin bölgesinde mi?
+                        if detect_open_hand(hl) and not selection_made:  # Eğer bu el açık el jesti yapıyorsa ve seçim yapılmamışsa
+                            selected_item = current_sub_menu_items[absolute_index]  # Bu öğe seçilir
+                            print(f"Seçilen öğe: {selected_item}")  # Konsola seçilen öğeyi yazdır
+                            selected_text_label.configure(text=f"Selected: {selected_item}")  # Ekranda seçilen öğeyi göster
+                            selection_made = True  # Artık seçim yapıldı, bu yüzden seçim işlemini durdur
+                            break  # Seçim yapıldıktan sonra döngüden çık
+                    else:
+                        # El hover edilen bölgeden çıkarsa seçim tekrar aktif olur
+                        selection_made = False  # Seçim tekrar aktif olur
+
+
 
     if selected_item is not None:
         selected_text_label.configure(text=f"Selected: {selected_item}")
 
-    resized_frame = cv2.resize(frame_rgb, (450, 325))
-    frame_image = ImageTk.PhotoImage(image=Image.fromarray(resized_frame))
+    resized_frame = cv2.resize(frame, (450, 325))  # Burada frame_rgb yerine frame kullanıyoruz
+    frame_image = ImageTk.PhotoImage(image=Image.fromarray(cv2.cvtColor(resized_frame, cv2.COLOR_BGR2RGB)))
     menu_canvas.create_image(400, 480, anchor=tk.NW, image=frame_image, tags="camera")
     menu_canvas.image = frame_image
+
 
     menu_canvas.tag_lower("camera")
 
