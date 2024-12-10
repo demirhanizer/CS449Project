@@ -308,7 +308,6 @@ def update_video():
                     current_menu = "main"
                     break
 
-            # Seçim koşulu: hovered_index belirli ve açık el jesti var mı?
 
             if hovered_index is not None:
                 absolute_index = scroll_index + hovered_index
