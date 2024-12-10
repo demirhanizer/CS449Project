@@ -69,7 +69,7 @@ scroll_index = 0
 
 # For slowing down scrolling
 last_scroll_frame = 0
-scroll_cooldown_frames = 40  # Adjust to slow down scrolling. Higher = slower.
+scroll_cooldown_frames = 40 
 
 # Canvas for the circular menu and camera feed
 menu_canvas = tk.Canvas(root, width=1200, height=800, bg="lightgray")
@@ -110,7 +110,7 @@ def draw_listed_menu(items, scroll_index, hovered_index=None):
         y = 100 + i * 60
         # If this item is hovered, highlight it differently
         if hovered_index == i:
-            fill_color = "#e0f7fa"  # a light highlight color
+            fill_color = "#e0f7fa"
             outline_color = "blue"
         else:
             fill_color = "white"
@@ -240,11 +240,10 @@ def update_video():
         for hl in results.multi_hand_landmarks:
             hand_landmarks_list.append(hl.landmark)
         
-            # El işaretlerini çerçeveye çiziyoruz
             mp_drawing.draw_landmarks(
                 frame, hl, mp_hands.HAND_CONNECTIONS,
-                mp_drawing.DrawingSpec(color=(121, 22, 76), thickness=2, circle_radius=4),  # Nokta stilleri
-                mp_drawing.DrawingSpec(color=(250, 44, 250), thickness=2)  # Bağlantı stilleri
+                mp_drawing.DrawingSpec(color=(121, 22, 76), thickness=2, circle_radius=4),
+                mp_drawing.DrawingSpec(color=(250, 44, 250), thickness=2)
             )
 
         # Process gestures after collecting all
@@ -311,8 +310,7 @@ def update_video():
 
             # Seçim koşulu: hovered_index belirli ve açık el jesti var mı?
 
-            if hovered_index is not None:  # Eğer bir öğe hover ediliyorsa
-                # hovered_index ile eşleşen imlecin (index parmağının) hover yaptığı öğe
+            if hovered_index is not None:
                 absolute_index = scroll_index + hovered_index
 
                 for hl in hand_landmarks_list:
@@ -320,25 +318,23 @@ def update_video():
                     canvas_x = index_tip.x * 1200
                     canvas_y = index_tip.y * 800
 
-                    # İmlecin (cursor) hover yaptığı öğenin bölgesinde mi?
-                    y = 100 + hovered_index * 60  # Her bir öğenin yüksekliğini kontrol et (40'tan 60'a çıkarıldı)
-                    if 400 <= canvas_x <= 800 and y <= canvas_y <= y + 30:  # İmleç hover edilen öğenin bölgesinde mi?
-                        if detect_open_hand(hl) and not selection_made:  # Eğer bu el açık el jesti yapıyorsa ve seçim yapılmamışsa
-                            selected_item = current_sub_menu_items[absolute_index]  # Bu öğe seçilir
-                            print(f"Seçilen öğe: {selected_item}")  # Konsola seçilen öğeyi yazdır
-                            selected_text_label.configure(text=f"Selected: {selected_item}")  # Ekranda seçilen öğeyi göster
-                            selection_made = True  # Artık seçim yapıldı, bu yüzden seçim işlemini durdur
-                            break  # Seçim yapıldıktan sonra döngüden çık
+                    # if cursor is in hover element
+                    y = 100 + hovered_index * 60  # check hegiht of them items
+                    if 400 <= canvas_x <= 800 and y <= canvas_y <= y + 30:  # cursor is in the filed of item
+                        if detect_open_hand(hl) and not selection_made:
+                            selected_item = current_sub_menu_items[absolute_index]  # select item
+                            selected_text_label.configure(text=f"Selected: {selected_item}")  # show the selected item
+                            selection_made = True 
+                            break 
                     else:
-                        # El hover edilen bölgeden çıkarsa seçim tekrar aktif olur
-                        selection_made = False  # Seçim tekrar aktif olur
+                        selection_made = False
 
 
 
     if selected_item is not None:
         selected_text_label.configure(text=f"Selected: {selected_item}")
 
-    resized_frame = cv2.resize(frame, (300, 200))  # Burada frame_rgb yerine frame kullanıyoruz
+    resized_frame = cv2.resize(frame, (300, 200))
     frame_image = ImageTk.PhotoImage(image=Image.fromarray(cv2.cvtColor(resized_frame, cv2.COLOR_BGR2RGB)))
     menu_canvas.create_image(900, 600, anchor=tk.NW, image=frame_image, tags="camera")
     menu_canvas.image = frame_image

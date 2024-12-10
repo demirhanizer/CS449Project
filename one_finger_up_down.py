@@ -34,8 +34,8 @@ def detect_gesture(landmarks):
     index_base = landmarks[mp_hands.HandLandmark.INDEX_FINGER_MCP]
 
     # Tolerances for detecting significant vertical movement (to reduce lateral errors)
-    vertical_tolerance = 0.1  # Adjust this value for fine-tuning
-    lateral_tolerance = 0.15  # Adjust to prevent false lateral movements
+    vertical_tolerance = 0.1
+    lateral_tolerance = 0.15 
 
     # Check if the index finger is pointing up
     if (
